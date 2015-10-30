@@ -10,7 +10,9 @@ import datetime
 from collections import OrderedDict
 from datetime import date
 from struct import *
+
 from PIL import Image
+from StringIO import StringIO
 
 class OlympusAirLiveViewFrame:
 
@@ -31,6 +33,7 @@ class OlympusAirLiveViewFrame:
 		res = res +  'ISO %i, auto: %i, warning: %i\n' % (self.iso, self.isoAuto, self.isoWarning)
 		res = res +  'Focus mode: %i\n' % self.focusMode
 		res = res +  'Zoom: %i mm, min: %i mm, max %i mm\n' % (self.zoomCurr,self.zoomWide,self.zoomTele)
+		res = res +  'Exposure warning: %i, metering warning: %i' % (self.expWarning, self.meteringWarning)
 		return res
 
 	def showImage(self):
@@ -140,7 +143,7 @@ class OlympusAirLiveViewFrame:
 			elif funcID == 12:
 				self.decodeISO(subdata)
 			elif funcID == 16:
-				pass
+				self.decodeMeterWarning(subdata)
 			elif funcID == 17:
 				self.decodeFocusMode(subdata)
 			elif funcID == 18:
@@ -242,7 +245,12 @@ class OlympusAirLiveViewFrame:
 		self.zoomTele = unpack_from('!H',data[6:8])[0]
 
 		# print 'Zoom %i to %i, curr %i' % (self.zoomWide,self.zoomTele,self.zoomCurr)
-
+	
+	def decodeMeterWarning(self,data):
+		self.expWarning = unpack_from('!H',data[0:2])[0] == 1
+		self.meteringWarning = unpack_from('!H',data[2:4])[0] == 1
+		
+		# print 'Exposure warning: %i, metering warning: %i' % (self.expWarning, self.meteringWarning)
 	
 
 class OlympusAirEvent:
@@ -342,7 +350,7 @@ class OlympusAir:
     
     IP = '192.168.0.10'
     headers = {'User-Agent':'OlympusCameraKit'}
-    eventTimeout = 20
+    eventTimeout = 5
     
     
     def __init__(self, evPort=65000, lvPort=65001):
@@ -434,12 +442,14 @@ class OlympusAir:
     def switchMode(self,mode):
         print 'Camera mode change to %s:' % mode,
         params = {'mode':mode}
-        req = requests.get('http://192.168.0.10/switch_cameramode.cgi',headers=self.headers,params=params)
-        
-        if req.status_code == 200 and xmltodict.parse(req.text)['result'] == 'OK':
+        req = requests.get('http://' + OlympusAir.IP + '/switch_cameramode.cgi',headers=self.headers,params=params)
+	req.raise_for_status()        
+
+        if xmltodict.parse(req.text)['result'] == 'OK':
             print 'OK'
         else:
-            print 'Failed %i' % req.status_code
+            print 'Failed'
+	    return
         
         
         selected, event = self.waitForEvent([OlympusAirEvent.MODE_CHANGE])
@@ -449,11 +459,8 @@ class OlympusAir:
     
     def getFilesList(self,dirName='/DCIM/100OLYMP'):
         params = {'DIR':dirName}
-        req = requests.get('http://192.168.0.10/get_imglist.cgi',headers=self.headers,params=params)
-        
-        if req.status_code == 404:
-            print 'Not found'
-            return None
+        req = requests.get('http://' + OlympusAir.IP + '/get_imglist.cgi',headers=self.headers,params=params)
+	req.raise_for_status()        
         
         rawFilesList = []
 	jpegFilesList = []
@@ -509,6 +516,38 @@ class OlympusAir:
 	return None, None
         
     
+    def removeFileProtection(self):
+	print 'Removing file protection',
+	req = requests.get('http://' + OlympusAir.IP + '/release_allprotect.cgi',headers = self.headers)
+	req.raise_for_status()
+
+	if xmltodict.parse(req.text)['result'] == 'OK':
+		print 'OK'
+	else:
+		print 'Failed'
+
+    def removeFile(self,path):
+	params = {'DIR':path}
+	print 'Erasing file %s:' % path,
+	req = requests.get('http://' + OlympusAir.IP + '/exec_erase.cgi',headers = self.headers,params=params)
+	req.raise_for_status()
+
+	if xmltodict.parse(req.text)['result'] == 'OK':
+		print 'OK'
+	else:
+		print 'Failed'
+
+    def removeAllFiles(self):
+	jpegList, rawList = self.getFilesList()
+
+	for f in jpegList:
+		self.removeFile(f.directory + '/' + f.fileName)
+
+	for f in rawList:
+		self.removeFile(f.directory + '/' + f.fileName)
+
+
+
     
     def getResizedFile(self, path, size):
         headers = {'User-Agent':'OlympusCameraKit'}
@@ -659,6 +698,7 @@ class OlympusAir:
         
         print 'Establishing liveview socket %i:' % self.lvPort,    
         self.lvSocket = socket.socket(socket.AF_INET,socket.SOCK_DGRAM) #UDP
+	self.lvSocket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         self.lvSocket.bind(('',self.lvPort))
         self.lvSocket.settimeout(5)
         print 'OK' 

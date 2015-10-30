@@ -11,20 +11,22 @@ import requests
 import RPi.GPIO as GPIO
 from OlympusAir import OlympusAir, OlympusAirError, OlympusAirLiveViewFrame
 
-LEDpins = [17, 27, 22, 6, 13, 19, 26]
+# LEDpins = [17, 27, 22, 6, 13, 19, 26]
+LEDpins = [19, 6, 26, 22, 27, 17, 13]
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(LEDpins,GPIO.OUT)
 GPIO.output(LEDpins, GPIO.LOW)
 
 cam = OlympusAir()
 cam.commInterface()
+cam.switchMode('standalone')
 cam.switchMode('rec')
 cam.setProperty('FOCUS_STILL','FOCUS_SAF')
 cam.setProperty('RAW','ON')
 cam.setProperty('TAKE_DRIVE','DRIVE_NORMAL')
 cam.setProperty('TAKEMODE','P')
 cam.setProperty('DESTINATION_FILE','DESTINATION_FILE_MEDIA')
-cam.setProperty('EXPREV','-3.0')
+cam.setProperty('EXPREV','-1.0')
 
  
 dirPath = './' + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
