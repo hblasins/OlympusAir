@@ -21,6 +21,42 @@ class OlympusAirLiveViewFrame:
 	AF_OK = 1
 	AF_FAILED = 2
 
+	def __init__(self):
+		self.jpegSize = None
+		self.afType = None
+		self.afXcoord = None
+		self.afYcoord = None
+		self.afWidth = None
+		self.afHeight = None
+		self.cardNotFull = None
+		self.cardProtected = None
+		self.cardError = None
+		self.cardWriteInProgress = None
+		self.cardMounted = None
+		self.orientation = None
+		self.capacity = None
+		self.shutterCurrNum = None
+		self.shutterCurrDenom = None
+		self.shutterMaxNum = None
+		self.shutterMaxDenom = None
+		self.shutterMinNum = None
+		self.shutterMinDenom = None
+
+		self.fNumberCurr = None
+		self.fNumberMax = None
+		self.fNumberMin = None
+		self.iso = None
+		self.isoAuto = None
+		self.isoWarning = None
+		self.focusMode = None
+		self.zoomCurr = None
+		self.zoomWide = None
+		self.zoomTele = None
+		self.expWarning = None
+		self.meteringWarning = None
+
+
+
 	def __str__(self):
 		res = 'Live View Frame ID: %i\n' % self.frameID
 		res = res +  'Live View Jpeg file size: %i bytes\n' % self.jpegSize
@@ -182,6 +218,7 @@ class OlympusAirLiveViewFrame:
 
 	def decodeOrientation(self,data):
 		orient = unpack_from('!I',data)[0]
+		self.orientation = -1
 		if orient == 1:
 			self.orientation = 0
 		elif orient == 3:
@@ -190,8 +227,7 @@ class OlympusAirLiveViewFrame:
 			self.orientation = 90
 		elif orient == 8:
 			self.orientaion = 270
-		else:
-			self.orientation = -1
+			
 
 		# print 'Orientation %i' % self.orientation
 
