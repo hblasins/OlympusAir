@@ -11,10 +11,9 @@ from collections import OrderedDict
 from datetime import date
 from struct import *
 
-from PIL import Image
-from StringIO import StringIO
 
-
+from .Event import Event
+from .Error import Error
 
 class Camera:
     
@@ -32,7 +31,7 @@ class Camera:
 
 	print 'Camera init:',
 	headers = {'User-Agent':'OlympusCameraKit'}
-        req = requests.get('http://' + OlympusAir.IP + '/get_connectmode.cgi',headers=headers)
+        req = requests.get('http://' + Camera.IP + '/get_connectmode.cgi',headers=headers)
     	req.raise_for_status()
 
         if (xmltodict.parse(req.text)['connectmode'] == 'OPC'):
@@ -44,7 +43,7 @@ class Camera:
 
         print 'Establishing camera event notification:',
         params={'port':evPort}
-        req = requests.get('http://' + OlympusAir.IP + '/start_pushevent.cgi',headers=headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/start_pushevent.cgi',headers=headers,params=params)
 	req.raise_for_status()
 	print 'OK'	
         
@@ -57,7 +56,7 @@ class Camera:
         self.eventSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         self.eventSocket.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
         self.eventSocket.settimeout(2)
-        self.eventSocket.connect((OlympusAir.IP,evPort))
+        self.eventSocket.connect((Camera.IP,evPort))
     
 	print 'OK'
         
@@ -112,7 +111,7 @@ class Camera:
     def switchMode(self,mode):
         print 'Camera mode change to %s:' % mode,
         params = {'mode':mode}
-        req = requests.get('http://' + OlympusAir.IP + '/switch_cameramode.cgi',headers=self.headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/switch_cameramode.cgi',headers=self.headers,params=params)
 	req.raise_for_status()        
 
         if xmltodict.parse(req.text)['result'] == 'OK':
@@ -122,7 +121,7 @@ class Camera:
 	    return
         
         
-        selected, event = self.waitForEvent([OlympusAirEvent.MODE_CHANGE])
+        selected, event = self.waitForEvent([Event.MODE_CHANGE])
         
     
     
@@ -188,7 +187,7 @@ class Camera:
     
     def removeFileProtection(self):
 	print 'Removing file protection',
-	req = requests.get('http://' + OlympusAir.IP + '/release_allprotect.cgi',headers = self.headers)
+	req = requests.get('http://' + Camera.IP + '/release_allprotect.cgi',headers = self.headers)
 	req.raise_for_status()
 
 	if xmltodict.parse(req.text)['result'] == 'OK':
@@ -199,7 +198,7 @@ class Camera:
     def removeFile(self,path):
 	params = {'DIR':path}
 	print 'Erasing file %s:' % path,
-	req = requests.get('http://' + OlympusAir.IP + '/exec_erase.cgi',headers = self.headers,params=params)
+	req = requests.get('http://' + Camera.IP + '/exec_erase.cgi',headers = self.headers,params=params)
 	req.raise_for_status()
 
 	if xmltodict.parse(req.text)['result'] == 'OK':
@@ -267,7 +266,7 @@ class Camera:
             length = ord(buff[i+2])*256 + ord(buff[i+3])
             data = buff[(i+4):(i+4+length)]
                 
-            event = OlympusAirEvent(appID,event,data)
+            event = Event(appID,event,data)
             # print event
             i = i+4+length
             eventList.append(event)
@@ -294,7 +293,7 @@ class Camera:
         
         
         att=0
-        while att < OlympusAir.eventTimeout:
+        while att < Camera.eventTimeout:
  
             try:
                 eventList = self.getEventNotifications(self.eventSocket)
@@ -313,7 +312,7 @@ class Camera:
                 
             except socket.timeout as err:
 		att = att+1
-                print 'Waiting for events, attempt %i/%i' % (att,OlympusAir.eventTimeout)
+                print 'Waiting for events, attempt %i/%i' % (att,Camera.eventTimeout)
             
         print 'Timeout reached'    
         # print found, event
@@ -324,7 +323,7 @@ class Camera:
    
         print 'Camera property %s read' % propName,
         params=OrderedDict([('com','desc'),('propname',propName)])
-        req = requests.get('http://' + OlympusAir.IP + '/get_camprop.cgi',headers=self.headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/get_camprop.cgi',headers=self.headers,params=params)
         req.raise_for_status()
 
         
@@ -345,13 +344,13 @@ class Camera:
             params = OrderedDict([('com','set'),('propname',propName)])
             payload = '<?xml version="1.0"?><set><value>%s</value></set>\n' % (propVal)
         
-            req = requests.post('http://' + OlympusAir.IP + '/set_camprop.cgi',headers=self.headers,params=params,data=payload)
+            req = requests.post('http://' + Camera.IP + '/set_camprop.cgi',headers=self.headers,params=params,data=payload)
 	    req.raise_for_status()    
 	    print 'OK'
             
-            selected, event = self.waitForEvent([OlympusAirEvent.PROPERTY_CHANGE])
+            selected, event = self.waitForEvent([Event.PROPERTY_CHANGE])
 	    if selected == False:
-		raise OlympusAirError(OlympusAirError.PROPERTY_NOT_CHANGED)
+		raise OlympusAirError(Error.PROPERTY_NOT_CHANGED)
 
             # for (i,j) in zip(selected,event):
             #    print i,j
@@ -378,7 +377,7 @@ class Camera:
         
         print 'Camera live view resolution change to %s:' % resolution,
         params = OrderedDict([('com','changelvqty'),('lvqty',resolution)])
-        req = requests.get('http://' + OlympusAir.IP + '/exec_takemisc.cgi',headers=self.headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/exec_takemisc.cgi',headers=self.headers,params=params)
 	req.raise_for_status()
 
 	if (xmltodict.parse(req.text)['result'] == 'OK'):
@@ -390,7 +389,7 @@ class Camera:
         
         print 'Camera live view start:',
         params = OrderedDict([('com','startliveview'),('port',self.lvPort)])
-        req = requests.get('http://' + OlympusAir.IP + '/exec_takemisc.cgi',headers=self.headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/exec_takemisc.cgi',headers=self.headers,params=params)
 	req.raise_for_status()        
         print 'OK'
         
@@ -406,25 +405,25 @@ class Camera:
     def takePicture(self):
         print 'Camera picture acquisition:',
         params = OrderedDict([('com','newstarttake')])
-        req = requests.get('http://' + OlympusAir.IP + '/exec_takemotion.cgi',headers=self.headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/exec_takemotion.cgi',headers=self.headers,params=params)
         req.raise_for_status()
       	print 'OK'
 	
         
-        eventIDs = [OlympusAirEvent.AUTO_FOCUS_RESULT,
-		    OlympusAirEvent.READY_TO_CAPTURE,
-		    OlympusAirEvent.CAPTURE_STARTED,
-		    OlympusAirEvent.CAPTURE_FINISHED,
-		    OlympusAirEvent.CAPTURE_PROCESS_FINISHED]
+        eventIDs = [Event.AUTO_FOCUS_RESULT,
+		    Event.READY_TO_CAPTURE,
+		    Event.CAPTURE_STARTED,
+		    Event.CAPTURE_FINISHED,
+		    Event.CAPTURE_PROCESS_FINISHED]
         ind, event = self.waitForEvent(eventIDs)
 
 	# Raise an error if the camera could not focus
 	if ind[0] == True and xmltodict.parse(event[0].data)['root']['result'] == 'ng':
-		raise OlympusAirError(OlympusAirError.AF)
+		raise OlympusAirError(Error.AF)
 	
 	# Raise an error if a capture was not finished
 	if ind[3] == False:
-		raise OlympusAirError(OlympusAirError.CAPTURE_FAILED)
+		raise OlympusAirError(Error.CAPTURE_FAILED)
 
 
 	# for (i,j,k) in zip(eventIDs,ind,event):
@@ -434,7 +433,7 @@ class Camera:
     def stopPreview(self):
         print 'Camera live view stop:',
         params = OrderedDict([('com','stopliveview')])
-        req = requests.get('http://' + OlympusAir.IP + '/exec_takemisc.cgi',headers=self.headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/exec_takemisc.cgi',headers=self.headers,params=params)
         req.raise_for_status()
 	print 'OK'
         

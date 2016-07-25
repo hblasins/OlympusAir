@@ -11,8 +11,6 @@ from collections import OrderedDict
 from datetime import date
 from struct import *
 
-from PIL import Image
-from StringIO import StringIO
 
 class Error(Exception):
 

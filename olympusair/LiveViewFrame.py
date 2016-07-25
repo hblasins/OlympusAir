@@ -11,8 +11,6 @@ from collections import OrderedDict
 from datetime import date
 from struct import *
 
-from PIL import Image
-from StringIO import StringIO
 
 class LiveViewFrame:
 
@@ -71,10 +69,7 @@ class LiveViewFrame:
 		res = res +  'Zoom: %i mm, min: %i mm, max %i mm\n' % (self.zoomCurr,self.zoomWide,self.zoomTele)
 		res = res +  'Exposure warning: %i, metering warning: %i' % (self.expWarning, self.meteringWarning)
 		return res
-
-	def showImage(self):
-		img = Image.open(StringIO(self.jpegStream))
-		img.show()
+		
 
 	def getLiveViewFrame(self,port):
 
