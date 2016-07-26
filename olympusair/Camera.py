@@ -12,14 +12,13 @@ from datetime import date
 from struct import *
 
 
-from .Event import Event
-from .Error import Error
+import olympusair
 
 class Camera:
     
     IP = '192.168.0.10'
     headers = {'User-Agent':'OlympusCameraKit'}
-    eventTimeout = 5
+    eventTimeout = 2
     
     
     def __init__(self, evPort=65000, lvPort=65001):
@@ -121,20 +120,20 @@ class Camera:
 	    return
         
         
-        selected, event = self.waitForEvent([Event.MODE_CHANGE])
+        selected, event = self.waitForEvent([olympusair.Event.MODE_CHANGE])
         
     
     
     
     def getFilesList(self,dirName='/DCIM/100OLYMP'):
         params = {'DIR':dirName}
-        req = requests.get('http://' + OlympusAir.IP + '/get_imglist.cgi',headers=self.headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/get_imglist.cgi',headers=self.headers,params=params)
 	req.raise_for_status()        
         
         rawFilesList = []
 	jpegFilesList = []
         for l in req.text.splitlines()[1:]:
-		currFile = OlympusAirFile(l.split(','))
+		currFile = olympusair.File(l.split(','))
 	   	if currFile.fileName.split('.')[1] == 'JPG':
 			jpegFilesList.append(currFile)
 		if currFile.fileName.split('.')[1] == 'ORF':
@@ -151,7 +150,7 @@ class Camera:
         
 
     def getFile(self,path):
-        req = requests.get('http://192.168.0.10' + path,headers=self.headers)
+        req = requests.get('http://' + Camera.IP + path,headers=self.headers)
         
         
         return req
@@ -223,7 +222,7 @@ class Camera:
         params = {'DIR':path,'size':size}
         
         
-        req = requests.get('http://192.168.0.10/get_resizeimg.cgi',headers=headers,params=params)
+        req = requests.get('http://' + Camera.IP + '/get_resizeimg.cgi',headers=headers,params=params)
         print req.status_code
         
         return req
@@ -266,7 +265,7 @@ class Camera:
             length = ord(buff[i+2])*256 + ord(buff[i+3])
             data = buff[(i+4):(i+4+length)]
                 
-            event = Event(appID,event,data)
+            event = olympusair.Event(appID,event,data)
             # print event
             i = i+4+length
             eventList.append(event)
@@ -348,9 +347,9 @@ class Camera:
 	    req.raise_for_status()    
 	    print 'OK'
             
-            selected, event = self.waitForEvent([Event.PROPERTY_CHANGE])
+            selected, event = self.waitForEvent([olympusair.Event.PROPERTY_CHANGE])
 	    if selected == False:
-		raise OlympusAirError(Error.PROPERTY_NOT_CHANGED)
+		raise olympusair.Error(olympusair.Error.PROPERTY_NOT_CHANGED)
 
             # for (i,j) in zip(selected,event):
             #    print i,j
@@ -383,7 +382,7 @@ class Camera:
 	if (xmltodict.parse(req.text)['result'] == 'OK'):
             print 'OK'
         else:
-            raise OlympusAirError(OlympusAirError.PREVIEW_RES_CHANGE)
+            raise olympusair.Error(olympusair.Error.PREVIEW_RES_CHANGE)
         
         
         
@@ -398,7 +397,7 @@ class Camera:
         data = self.lvSocket.recvfrom(128)
 
         if len(data) == 0:
-            raise OlympusAirError(OlympusAirError.PREVIEW_DATA_UNAVAILABLE)
+            raise olympusair.Error(olympusair.Error.PREVIEW_DATA_UNAVAILABLE)
         
             
         
@@ -410,20 +409,20 @@ class Camera:
       	print 'OK'
 	
         
-        eventIDs = [Event.AUTO_FOCUS_RESULT,
-		    Event.READY_TO_CAPTURE,
-		    Event.CAPTURE_STARTED,
-		    Event.CAPTURE_FINISHED,
-		    Event.CAPTURE_PROCESS_FINISHED]
+        eventIDs = [olympusair.Event.AUTO_FOCUS_RESULT,
+		    olympusair.Event.READY_TO_CAPTURE,
+		    olympusair.Event.CAPTURE_STARTED,
+		    olympusair.Event.CAPTURE_FINISHED,
+		    olympusair.Event.CAPTURE_PROCESS_FINISHED]
         ind, event = self.waitForEvent(eventIDs)
 
 	# Raise an error if the camera could not focus
 	if ind[0] == True and xmltodict.parse(event[0].data)['root']['result'] == 'ng':
-		raise OlympusAirError(Error.AF)
+		raise olympusair.Error(olympusair.Error.AF)
 	
 	# Raise an error if a capture was not finished
 	if ind[3] == False:
-		raise OlympusAirError(Error.CAPTURE_FAILED)
+		raise olympusair.Error(olympusair.Error.CAPTURE_FAILED)
 
 
 	# for (i,j,k) in zip(eventIDs,ind,event):
@@ -444,7 +443,7 @@ class Camera:
     def waitOnCardWrite(self):
 	
 
-	frame = OlympusAirLiveViewFrame()
+	frame = olympusair.LiveViewFrame()
 	frame.getLiveViewFrame(self.lvSocket)
 
 	nFrames = 0
@@ -455,10 +454,7 @@ class Camera:
 
 	nFrames = 0
 	while frame.cardWriteInProgress == 1 and nFrames < 1000:
-		frame.getLiveViewFrame(self.lvSocket)
-		if nFrames == 0:
-			print frame
-			frame.showImage()
+		frame.getLiveViewFrame(self.lvSocket) 
 		nFrames = nFrames + 1
 		# print 'Write started, getting frame %i/%i' % (nFrames,1000)
 
