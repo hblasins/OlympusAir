@@ -63,25 +63,42 @@ class Camera:
         self.lvPort = lvPort
         
         
+    def __str__(self):
+        state = self.getState()
+ 
         
+        res = 'OlympusAir camera: \n'
+        res = res + '>> WiFi: %s\n' % self.getProperty('SSID',verbose=False)
+        res = res + '>> Battery level: %s\n' % self.getProperty('BATTERY_LEVEL',verbose=False)
+
+        res = res + '>> Memory Card: \n'
+        res = res + '   Status: %s\n' % state['cardstatus']
+        res = res + '   Capacity: %i MB\n' % (float(state['cardremainbyte'])/1000000)
+        res = res + '>> Lens:\n'
+        res = res + '   Status: %s\n' % state['lensmountstatus']
+        res = res + '   Focal length: %s mm\n' % state['focallength']
+        res = res + '   Focal length range: %s to %s mm\n' % (state['widefocallength'],state['telefocallength'])
+        res = res + '   Motorized zoom: %s\n' % state['electriczoom']
+        
+        return res
 
         
-    def disconnect(self):        
-        print 'Disconnecting camera:',
+    def disconnect(self,verbose=True):
+        if verbose:
+            print 'Disconnecting camera:',
         req = requests.get('http://192.168.0.10/stop_pushevent.cgi',headers=self.headers)
-        if req.status_code == 200:
-            print 'OK'
-        else:
-            print 'Failed'
+
+        if verbose:
+            if req.status_code == 200:
+                print 'OK'
+            else:
+                print 'Failed'
         
         self.eventSocket.close()
-             
+
             
             
-            
-            
-            
-    def commInterface(self,interface='wifi'):
+    def commInterface(self,interface='wifi'):        
         print 'Camera communication mode change to %s:' % interface,
         params = {'path':interface}
         
@@ -122,24 +139,37 @@ class Camera:
         
         selected, event = self.waitForEvent([olympusair.Event.MODE_CHANGE])
         
-    
-    
-    
-    def getFilesList(self,dirName='/DCIM/100OLYMP'):
+    def getFolderList(self,dirName='/DCIM'):
         params = {'DIR':dirName}
         req = requests.get('http://' + Camera.IP + '/get_imglist.cgi',headers=self.headers,params=params)
-	req.raise_for_status()        
-        
+	req.raise_for_status()
+
+	folderList = []
+	for l in req.text.splitlines()[1:]:
+            folderList.append(l.split(',')[1])
+
+        return folderList
+    
+    
+    def getFilesList(self,dirName='/DCIM'):
+
+        folderList = self.getFolderList(dirName)
+
         rawFilesList = []
 	jpegFilesList = []
-        for l in req.text.splitlines()[1:]:
+        for folder in folderList:
+        
+            params = {'DIR':dirName + '/' + folder}
+            req = requests.get('http://' + Camera.IP + '/get_imglist.cgi',headers=self.headers,params=params)
+            req.raise_for_status()        
+        
+        
+            for l in req.text.splitlines()[1:]:
 		currFile = olympusair.File(l.split(','))
 	   	if currFile.fileName.split('.')[1] == 'JPG':
 			jpegFilesList.append(currFile)
 		if currFile.fileName.split('.')[1] == 'ORF':
 			rawFilesList.append(currFile)
-
-            # filesList.append(OlympusAirFile(l.split(',')))
         
         return jpegFilesList, rawFilesList
     
@@ -206,11 +236,13 @@ class Camera:
 		print 'Failed'
 
     def removeAllFiles(self):
-	jpegList, rawList = self.getFilesList()
+	jpegList, _ = self.getFilesList()
 
+        # If there are JPG + RAW files then removing JPG will also remove RAW
 	for f in jpegList:
 		self.removeFile(f.directory + '/' + f.fileName)
 
+        _, rawList = self.getFilesList()
 	for f in rawList:
 		self.removeFile(f.directory + '/' + f.fileName)
 
@@ -318,9 +350,10 @@ class Camera:
         return found, event
             
         
-    def getProperty(self,propName):
-   
-        print 'Camera property %s read' % propName,
+    def getProperty(self,propName,verbose=True):
+
+        if verbose:
+            print 'Camera property %s read' % propName,
         params=OrderedDict([('com','desc'),('propname',propName)])
         req = requests.get('http://' + Camera.IP + '/get_camprop.cgi',headers=self.headers,params=params)
         req.raise_for_status()
@@ -328,7 +361,8 @@ class Camera:
         
         state = xmltodict.parse(req.text)['desc']['value']
         allowedStates = xmltodict.parse(req.text)['desc']['enum']
-        print '%s (%s): OK' % (state,allowedStates)
+        if verbose:
+            print '%s (%s): OK' % (state,allowedStates)
         return state
         
         
