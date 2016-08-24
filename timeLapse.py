@@ -6,6 +6,8 @@
 import olympusair
 import os
 import datetime
+import cv2
+import sys
 
 
 # In[ ]:
@@ -60,14 +62,16 @@ while(1):
     dirPath =  os.path.join(destPath,elapsed.strftime('%Y-%m-%d_%H-%M-%S'))
     if not os.path.exists(dirPath):
         os.mkdir(dirPath)
-            
-    jpegFile = open(os.path.join(dirPath,'IMG.jpg'),'w')
-    jpegFile.write(jpeg)
-    jpegFile.close()
-            
-    rawFile = open(os.path.join(dirPath,'IMG.orf'),'w')
-    rawFile.write(raw)
-    rawFile.close()
+    
+    if jpeg != None:
+        jpegFile = open(os.path.join(dirPath,'IMG.jpg'),'w')
+        jpegFile.write(jpeg)
+        jpegFile.close()
+    
+    if raw != None:
+        rawFile = open(os.path.join(dirPath,'IMG.orf'),'w')
+        rawFile.write(raw)
+        rawFile.close()
     
     # Remove all files
     cam.switchMode('standalone')
@@ -77,8 +81,17 @@ while(1):
     cam.switchMode('standalone')
     cam.switchMode('rec')
     
-    if (elapsed - startTime) < datetime.timedelta(minutes=5):
+    elapsedTimer = datetime.datetime.now()
+    while (elapsed - startTime) < datetime.timedelta(minutes=5):
         elapsed = datetime.datetime.now()
+        if (elapsed - elapsedTimer) > datetime.timedelta(seconds=1):
+            td = datetime.timedelta(minutes=5) - (elapsed - startTime)
+            sys.stdout.write('Next capture in %i seconds \r' % td.seconds)
+            sys.stdout.flush()
+            elapsedTimer = datetime.datetime.now() 
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
     
     
         
