@@ -58,11 +58,15 @@ cam.getProperty('DESTINATION_FILE')
 
 # In[8]:
 
-cam.startPreview()
+cam.startPreview('0640x0480')
 
 
 # In[9]:
 
+
+cv2.namedWindow('Preview',cv2.WINDOW_NORMAL)
+cv2.moveWindow('Preview',800,50)
+cv2.resizeWindow('Preview',640,480)
 
 while (1):
     lvFrame = olympusair.LiveViewFrame()
@@ -76,6 +80,8 @@ while (1):
     cv2.putText(img,'ISO: %i' % (lvFrame.iso),(10,30),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0))
     
     cv2.imshow('Preview',img)
+    cv2.setWindowProperty('Preview',cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
+
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
         

@@ -212,6 +212,32 @@ class Camera:
 		return jpegFile.content, None
 
 	return None, None
+
+    def getLatestFileNames(self,id=0):
+        
+        jpegList, rawList = self.getFilesList()
+        
+
+	jpegList.sort(reverse = True)
+        rawList.sort(reverse = True)
+
+	# print jpegList
+
+	if id < len(jpegList):
+
+		jpegName = jpegList[id].fileName.split('.')[0]
+
+		for j in rawList:
+			rawName, frmt = j.fileName.split('.')
+			if rawName == jpegName and frmt=='ORF':
+                                jpegName = jpegList[id].directory + '/' + jpegName
+                                rawName = rawList[id].directory + '/' + rawName
+				return jpegName, rawName
+
+                jpegName = jpegList[id].directory + '/' + jpegName
+		return jpegName, None
+
+	return None, None
         
     
     def removeFileProtection(self):

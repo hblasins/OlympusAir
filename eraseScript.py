@@ -3,17 +3,13 @@
 
 # <codecell>
 
-import OlympusAir
+import olympusair
 import os
 import datetime
 import requests
 
 
-from OlympusAir import OlympusAir, OlympusAirError, OlympusAirLiveViewFrame
-
-
-
-cam = OlympusAir()
+cam = olympusair.Camera()
 cam.commInterface()
 
 cam.switchMode('standalone')
